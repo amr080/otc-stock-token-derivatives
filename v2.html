@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Robinhood Stock Token Pricing Demo</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;font-size:.9em;margin:20px}
+    h1{font-size:1.2em;margin:0 0 10px}
+    .form-field,.simulation-controls,.market-data,.portfolio,.trade-log{border:1px solid #000;padding:8px;margin-bottom:12px}
+    input,select,button{font-family:inherit;font-size:inherit;padding:2px 4px;border:1px solid #000;background:#fff}
+    #output p,.trade-entry{margin:2px 0;font-size:.85em}
+    .price-change{font-weight:700}
+    .price-up{color:#090}
+    .price-down{color:#a00}
+    .price-neutral{color:#111}
+  </style>
+</head>
+<body>
+  <h1>Robinhood Stock Token Pricing Demo</h1>
+
+  <div class="simulation-controls">
+    <button id="startSim">Start</button>
+    <button id="stopSim">Stop</button>
+    <label>Speed
+      <select id="simSpeed">
+        <option value="2000">2 s</option>
+        <option value="1000" selected>1 s</option>
+        <option value="500">0.5 s</option>
+        <option value="200">0.2 s</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="market-data">
+    <strong>Live Market</strong>
+    <p>USD $<span id="usd">200.00</span> <span id="usdΔ" class="price-change price-neutral">--</span></p>
+    <p>FX <span id="fx">1.1000</span> <span id="fxΔ" class="price-change price-neutral">--</span></p>
+    <p>Base €<span id="eur">181.82</span></p>
+    <p>Collar €<span id="collar">180.91 – 182.73</span></p>
+  </div>
+
+  <div class="form-field">
+    <label>USD Price <input id="usdInput" type="number" step="0.01" value="200"></label>
+    <label>FX Rate <input id="fxInput" type="number" step="0.0001" value="1.10"></label>
+    <label>FX Fee % <input id="feeInput" type="number" step="0.01" value="0.30"></label>
+    <label>Qty <input id="qty" type="number" value="1" min="1"></label>
+    <label>Type <select id="side"><option value="buy">buy</option><option value="sell">sell</option></select></label>
+    <button id="tradeBtn">Trade</button>
+  </div>
+
+  <div id="output"></div>
+
+  <div class="portfolio">
+    <strong>Portfolio</strong>
+    <p>Tokens <span id="tok">0</span></p>
+    <p>Cost €<span id="cost">0.00</span></p>
+    <p>Mkt €<span id="mkt">0.00</span></p>
+    <p>Unreal €<span id="unreal">0.00</span> (<span id="unrealPct">0.00%</span>)</p>
+    <p>Realized €<span id="real">0.00</span></p>
+  </div>
+
+  <div class="trade-log">
+    <strong>Trades</strong>
+    <div id="log"></div>
+  </div>
+
+<script>
+let int;let usd=200,fx=1.10,usdPrev=usd,fxPrev=fx;const P={tok:0,cost:0,real:0};const history=[];
+const E=id=>document.getElementById(id);
+const fmt=n=>n.toFixed(2),fmt4=n=>n.toFixed(4);
+function walk(x,v=0.02,d=0.0001){return Math.max(0.01,x+(d+v*(Math.random()-0.5)*2)*x)}
+function priceChange(el,xPrev,xNow,prefix=''){const Δ=xNow-xPrev;const pct=Δ/xPrev*100;el.textContent=`${Δ>=0?'+':'-'}${prefix}${fmt(Math.abs(Δ))} (${fmt(pct)}%)`;el.className='price-change '+(Δ>0?'price-up':Δ<0?'price-down':'price-neutral');}
+function refresh(){usdPrev=usd;fxPrev=fx;usd=walk(usd,0.015,0.0002);fx=walk(fx,0.005,0.0001);const base=usd/fx;const upper=base*1.005,lower=base*0.995;E('usd').textContent=fmt(usd);E('fx').textContent=fmt4(fx);priceChange(E('usdΔ'),usdPrev,usd,'$');priceChange(E('fxΔ'),fxPrev,fx);
+E('eur').textContent=fmt(base);E('collar').textContent=`${fmt(lower)} – ${fmt(upper)}`;
+E('usdInput').value=fmt(usd);E('fxInput').value=fmt4(fx);
+updatePortfolio();calc();}
+function calc(){const usdP=parseFloat(E('usdInput').value);const fxR=parseFloat(E('fxInput').value);const feeR=parseFloat(E('feeInput').value)/100;const q=parseFloat(E('qty').value);const base=usdP/fxR;const upper=base*1.005,lower=base*0.995;const exec=Math.max(lower,Math.min(upper,base*(1+((Math.random()-0.5)*0.008))));const fee=exec*q*feeR;const type=E('side').value;const total=type==='buy'?exec*q+fee:exec*q-fee;E('output').innerHTML=`<p>Exec €${fmt(exec)}</p><p>FX fee €${fmt(fee)}</p><p>${type==='buy'?'Debit':'Credit'} €${fmt(total)}</p>`;return{exec,fee,total,q,type};}
+function trade(){const t=calc();const time=new Date().toLocaleTimeString();if(t.type==='buy'){P.tok+=t.q;P.cost+=t.total;}else{if(P.tok<t.q){alert('insufficient');return;}const avg=P.cost/P.tok;const cBasis=avg*t.q;P.tok-=t.q;P.cost-=cBasis;P.real+=t.total-cBasis;}history.unshift(`${time} ${t.type.toUpperCase()} ${t.q}@€${fmt(t.exec)} = €${fmt(t.total)}`);if(history.length>10)history.pop();E('log').innerHTML=history.map(h=>`<div class='trade-entry'>${h}</div>`).join('');updatePortfolio();}
+function updatePortfolio(){const cur=usd/fx;const mkt=P.tok*cur;const unreal=mkt-P.cost;const pct=P.cost?unreal/P.cost*100:0;E('tok').textContent=P.tok;E('cost').textContent=fmt(P.cost);E('mkt').textContent=fmt(mkt);E('unreal').textContent=fmt(unreal);E('unrealPct').textContent=fmt(pct);E('unreal').className=unreal>0?'price-up':unreal<0?'price-down':'price-neutral';E('real').textContent=fmt(P.real);}
+E('tradeBtn').onclick=trade;E('startSim').onclick=_=>{clearInterval(int);int=setInterval(refresh,parseInt(E('simSpeed').value));};E('stopSim').onclick=_=>clearInterval(int);E('simSpeed').onchange=_=>{if(int){clearInterval(int);int=setInterval(refresh,parseInt(E('simSpeed').value));}};['usdInput','fxInput','feeInput','qty','side'].forEach(id=>E(id).oninput=calc);
+refresh();
+</script>
+</body>
+</html>
