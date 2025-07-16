@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,29 +13,67 @@
             background-color: white;
             margin: 20px;
         }
+
         ul {
             list-style-type: none;
             padding: 0;
         }
+
         li {
             margin: 10px 0;
         }
+
         a {
-            color: black;
+            color: blue;
             text-decoration: none;
         }
+
         a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
-<h1>Stock Tokens</h1>
-    <p><strong>Buy:</strong> debit €(exec × qty + FX fee) → mint same # tokens<br><strong>Sell:</strong> burn tokens → credit €(exec × qty − FX fee)</p>
+    <h1>Stock Tokens</h1>
+
     <ul>
         <li><a href="v1.html" target="_blank">Version 1</a></li>
         <li><a href="v2.html" target="_blank">Version 2</a></li>
     </ul>
+    <ul>
+        <li><strong>Counterparties</strong></li>
+        <li>Investor EU</li>
+        <li>Robinhood</li>
+        <li>Prime broker</li>
+        <li>Custodian</li>
+    </ul>
     
+    <h3>Buy Flow</h3>
+    <ul>
+        <li>1 User sends EUR to Robinhood</li>
+        <li>2 Robinhood swaps EUR to USD</li>
+        <li>3 Robinhood buys shares</li>
+        <li>4 Robinhood mints token to User wallet</li>
+    </ul>
+    <h3>Sell Flow</h3>
+    <ul>
+        <li>1 User sends token to Robinhood</li>
+        <li>2 Robinhood sells AAPL share</li>
+        <li>3 Robinhood swaps USD to EUR</li>
+        <li>4 Robinhood sends EUR to User</li>
+        <li>5 Robinhood burns tokens</li>
+    </ul>
+    <h3>Formulas</h3>
+    <ul>
+        <li><code>Base_EUR = USD_Price / FX_Rate</code></li>
+        <li><code>Upper = Base_EUR * 1.005</code></li>
+        <li><code>Lower = Base_EUR * 0.995</code></li>
+        <li><code>FX_Fee = Exec_Price * Qty * 0.003</code></li>
+        <li><code>Net_Cost = (Exec_Price * Qty) + FX_Fee</code></li>
+        <li><code>Credit = (Exec_Price * Qty) - FX_Fee</code></li>
+        <li><code>Unrealized_P/L = (Current_Base_EUR - Avg_Cost) * Position</code></li>
+    </ul>
 </body>
+
 </html>
