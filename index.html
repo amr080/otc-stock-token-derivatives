@@ -36,11 +36,14 @@
 
 <body>
     <h1>Stock Tokens</h1>
-
+    <ul style="width:500pt;">
+        <li>EU rules make it costly for European investors to buy U.S. stocks directly, so Robinhood buys the shares, parks them in a U.S. SPV, and issues euro‑denominated blockchain tokens that mirror each share. The mechanics are similar for both public and private stocks, just with differences in liquidity and pricing frequency. When investors hold tokens, they bear Robinhood counterparty risk rather than direct market exposure (holding token vs stk).</li>
+    </ul>
     <ul>
         <li><a href="v1.html" target="_blank">Version 1</a></li>
         <li><a href="v2.html" target="_blank">Version 2</a></li>
     </ul>
+
     <ul>
         <li><strong>Counterparties</strong></li>
         <li>Investor EU</li>
@@ -48,21 +51,45 @@
         <li>Prime broker</li>
         <li>Custodian</li>
     </ul>
-    
-    <h3>Buy Flow</h3>
+    <h3>PUBLIC EQUITIES</h3>
+    <h3>Buy</h3>
     <ul>
         <li>1 User sends EUR to Robinhood</li>
         <li>2 Robinhood swaps EUR to USD</li>
         <li>3 Robinhood buys shares</li>
         <li>4 Robinhood mints token to User wallet</li>
     </ul>
-    <h3>Sell Flow</h3>
+    <h3>Sell</h3>
     <ul>
         <li>1 User sends token to Robinhood</li>
         <li>2 Robinhood sells AAPL share</li>
         <li>3 Robinhood swaps USD to EUR</li>
         <li>4 Robinhood sends EUR to User</li>
         <li>5 Robinhood burns tokens</li>
+    </ul>
+    <h3>SECONDARIES</h3>
+    <h3>Buy</h3>
+    <ul>
+        <li>1 User sends EUR to Robinhood</li>
+        <li>2 Robinhood swaps EUR to USD</li>
+        <li>3 Robinhood finds OpenAI seller in secondary market</li>
+        <li>4 Robinhood buys OpenAI shares via private transaction</li>
+        <li>5 Robinhood mints token to User wallet</li>
+    </ul>
+    <h3>Sell</h3>
+    <ul>
+        <li>1 User sends token to Robinhood</li>
+        <li>2 Robinhood finds OpenAI buyer in secondary market</li>
+        <li>3 Robinhood sells OpenAI shares via private transaction</li>
+        <li>4 Robinhood swaps USD to EUR</li>
+        <li>5 Robinhood sends EUR to User</li>
+        <li>6 Robinhood burns tokens</li>
+    </ul>
+    <ul>
+        <li><strong>Secondary Liquidity Sources</strong></li>
+        <li>Total Return Swap (TRS)</li>
+        <li>Seller</li>
+        <li>Pre‑held inventory</li>
     </ul>
     <h3>Formulas</h3>
     <ul>
