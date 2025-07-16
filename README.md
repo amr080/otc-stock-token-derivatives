@@ -30,3 +30,26 @@ Buy AAPL token → Pay €182.55 → Hold 1 synthetic AAPL → Sell for €197.4
 - ETF: Multi-leg trade (equity + FX hedge + creation/redemption mechanism)
 
 Both profit from price discrepancies and FX movements, but ETF requires more complex hedging infrastructure.
+
+
+```html
+<h3><strong>Buy (1 AAPL @ €182.55)</strong></h3>
+<ul>
+    <li>1 User → €182.55 to RH</li>
+    <li>2 RH shorts synthetic to user</li>
+    <li>3 RH buys 1 AAPL @ $200 via prime broker</li>
+    <li>4 RH swaps €→$ for share cost</li>
+    <li>5 RH mint(user,1) token</li>
+    <li>6 Balances: User +1 token −€182.55 | RH +€182.55 +1 share −1 synthetic</li>
+</ul>
+<h3><strong>Sell (token price €197.41)</strong></h3>
+<ul>
+    <li>1 User hits sell</li>
+    <li>2 RH buys back synthetic, closes short</li>
+    <li>3 RH burn(user,1) token</li>
+    <li>4 RH sends €197.41 to user</li>
+    <li>5 RH sells 1 AAPL @ $210, swaps $→€</li>
+    <li>6 Balances flat; RH keeps spread + FX fee</li>
+</ul>
+<p>Pricing path: Nasdaq USD price → divide FX → collar ±0.5% → execPrice; only final euros enter mint/burn tx; none of this lives on contract</p>
+```
