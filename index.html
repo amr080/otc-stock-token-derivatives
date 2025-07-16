@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Token Pricing Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #111;
+      font-size: 0.9em;
+      margin: 20px;
+    }
+    .form-field {
+      margin-bottom: 4px;
+    }
+    input,
+    select,
+    button {
+      font-family: inherit;
+      font-size: inherit;
+      padding: 2px 4px;
+      border: 1px solid #000;
+      background: #fff;
+    }
+    h1 {
+      font-size: 1.2em;
+      margin-bottom: 10px;
+    }
+    #output p {
+      margin: 2px 0;
+    }
+    .controls {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+    }
+    .market-data {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #f5f5f5;
+    }
+    .price-change {
+      font-weight: bold;
+    }
+    .price-up { color: green; }
+    .price-down { color: red; }
+    .price-neutral { color: #333; }
+    .simulation-controls {
+      margin-bottom: 10px;
+    }
+    button.active {
+      background: #007bff;
+      color: white;
+    }
+    .portfolio {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #f0f8ff;
+    }
+    .trade-log {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #fffef0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .trade-log h3 {
+      margin-top: 0;
+      font-size: 1em;
+    }
+    .trade-entry {
+      font-size: 0.85em;
+      margin: 2px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Robinhood Stock Token Pricing Demo</h1>
+  
+  <div class="simulation-controls">
+    <button id="startSim">Start Market Simulation</button>
+    <button id="stopSim">Stop Simulation</button>
+    <label>Speed: 
+      <select id="simSpeed">
+        <option value="2000">Slow (2s)</option>
+        <option value="1000" selected>Normal (1s)</option>
+        <option value="500">Fast (0.5s)</option>
+        <option value="200">Very Fast (0.2s)</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="market-data">
+    <h3>Live Market Data</h3>
+    <p>USD Price: $<span id="currentUsdPrice">200.00</span> <span id="usdChange" class="price-change price-neutral">--</span></p>
+    <p>FX Rate: <span id="currentFxRate">1.1000</span> <span id="fxChange" class="price-change price-neutral">--</span></p>
+    <p>Base EUR: €<span id="currentBaseEur">181.82</span></p>
+    <p>Collar Range: €<span id="collarRange">180.91 – 182.73</span></p>
+  </div>
+
+  <div class="controls">
+    <h3>Manual Override</h3>
+    <div class="form-field">
+      <label>USD Price:
+        <input id="usdPrice" type="number" step="0.01" value="200" />
+      </label>
+    </div>
+    <div class="form-field">
+      <label>FX Rate (USD per EUR):
+        <input id="fxRate" type="number" step="0.0001" value="1.10" />
+      </label>
+    </div>
+    <div class="form-field">
+      <label>FX Fee Rate (%):
+        <input id="fxFeeRate" type="number" step="0.01" value="0.30" />
+      </label>
+    </div>
+    <div class="form-field">
+      <label>Quantity:
+        <input id="qty" type="number" value="1" step="1" min="1" />
+      </label>
+    </div>
+    <div class="form-field">
+      <label>Order Type:
+        <select id="orderType">
+          <option value="buy">Buy</option>
+          <option value="sell">Sell</option>
+        </select>
+      </label>
+    </div>
+    <button id="calcBtn">Execute Trade</button>
+  </div>
+
+  <div id="output"></div>
+
+  <div class="portfolio">
+    <h3>Portfolio</h3>
+    <p>Tokens Held: <span id="tokensHeld">0</span></p>
+    <p>Total Cost Basis: €<span id="totalCostBasis">0.00</span></p>
+    <p>Current Market Value: €<span id="currentMarketValue">0.00</span></p>
+    <p>Unrealized P/L: €<span id="unrealizedPL">0.00</span> (<span id="unrealizedPLPercent">0.00%</span>)</p>
+    <p>Realized P/L: €<span id="realizedPL">0.00</span></p>
+  </div>
+
+  <div class="trade-log">
+    <h3>Trade Log</h3>
+    <div id="tradeHistory"></div>
+  </div>
+
+  <script>
+    let simulationInterval;
+    let currentUsdPrice = 200.00;
+    let currentFxRate = 1.10;
+    let previousUsdPrice = 200.00;
+    let previousFxRate = 1.10;
+    
+    // Portfolio tracking
+    let portfolio = {
+      tokens: 0,
+      costBasis: 0,
+      realizedPL: 0
+    };
+    
+    let tradeHistory = [];
+
+    function fmt(n) {
+      return n.toFixed(2);
+    }
+
+    function fmt4(n) {
+      return n.toFixed(4);
+    }
+
+    function generateRandomWalk(current, volatility = 0.02, drift = 0.0001) {
+      const random = (Math.random() - 0.5) * 2; // -1 to 1
+      const change = (drift + volatility * random) * current;
+      return Math.max(0.01, current + change); // Prevent negative prices
+    }
+
+    function updateMarketData() {
+      previousUsdPrice = currentUsdPrice;
+      previousFxRate = currentFxRate;
+      
+      // Generate new prices with different volatilities
+      currentUsdPrice = generateRandomWalk(currentUsdPrice, 0.015, 0.0002);
+      currentFxRate = generateRandomWalk(currentFxRate, 0.005, 0.0001);
+      
+      // Update display
+      document.getElementById('currentUsdPrice').textContent = fmt(currentUsdPrice);
+      document.getElementById('currentFxRate').textContent = fmt4(currentFxRate);
+      
+      // Calculate and display changes
+      const usdChange = currentUsdPrice - previousUsdPrice;
+      const fxChange = currentFxRate - previousFxRate;
+      
+      updatePriceChange('usdChange', usdChange, '$');
+      updatePriceChange('fxChange', fxChange, '');
+      
+      // Update derived values
+      const baseEur = currentUsdPrice / currentFxRate;
+      const upper = baseEur * 1.005;
+      const lower = baseEur * 0.995;
+      
+      document.getElementById('currentBaseEur').textContent = fmt(baseEur);
+      document.getElementById('collarRange').textContent = `${fmt(lower)} – ${fmt(upper)}`;
+      
+      // Update form fields to current market values
+      document.getElementById('usdPrice').value = fmt(currentUsdPrice);
+      document.getElementById('fxRate').value = fmt4(currentFxRate);
+      
+      // Update portfolio value
+      updatePortfolioDisplay();
+      
+      // Auto-calculate current trade
+      calculateTrade();
+    }
+
+    function updatePriceChange(elementId, change, prefix) {
+      const element = document.getElementById(elementId);
+      const absChange = Math.abs(change);
+      const sign = change >= 0 ? '+' : '-';
+      const percentage = change / (elementId === 'usdChange' ? previousUsdPrice : previousFxRate) * 100;
+      
+      element.textContent = `${sign}${prefix}${fmt(absChange)} (${fmt(percentage)}%)`;
+      element.className = 'price-change ' + (change > 0 ? 'price-up' : change < 0 ? 'price-down' : 'price-neutral');
+    }
+
+    function calculateTrade() {
+      const usdPrice = parseFloat(document.getElementById("usdPrice").value);
+      const fxRate = parseFloat(document.getElementById("fxRate").value);
+      const fxFeeRate = parseFloat(document.getElementById("fxFeeRate").value) / 100;
+      const qty = parseFloat(document.getElementById("qty").value);
+      const orderType = document.getElementById("orderType").value;
+      
+      const baseEUR = usdPrice / fxRate;
+      const upper = baseEUR * 1.005;
+      const lower = baseEUR * 0.995;
+      
+      // Add some randomness to execution price within collar
+      const randomFactor = (Math.random() - 0.5) * 0.008; // ±0.4% randomness
+      const execPrice = Math.max(lower, Math.min(upper, baseEUR * (1 + randomFactor)));
+      
+      const fee = execPrice * qty * fxFeeRate;
+      const total = orderType === "buy" ? execPrice * qty + fee : execPrice * qty - fee;
+      
+      const html = `
+        <p>Base €: ${fmt(baseEUR)}</p>
+        <p>Collar: €${fmt(lower)} – €${fmt(upper)}</p>
+        <p>Execution Price: €${fmt(execPrice)}</p>
+        <p>FX Fee: €${fmt(fee)}</p>
+        <p>${orderType === "buy" ? "Total Debit" : "Total Credit"}: €${fmt(total)}</p>
+      `;
+      document.getElementById("output").innerHTML = html;
+      
+      return { execPrice, fee, total, qty, orderType };
+    }
+
+    function executeTrade() {
+      const trade = calculateTrade();
+      const timestamp = new Date().toLocaleTimeString();
+      
+      if (trade.orderType === "buy") {
+        portfolio.tokens += trade.qty;
+        portfolio.costBasis += trade.total;
+        
+        tradeHistory.push({
+          type: "BUY",
+          qty: trade.qty,
+          price: trade.execPrice,
+          total: trade.total,
+          timestamp
+        });
+      } else {
+        if (portfolio.tokens >= trade.qty) {
+          const avgCostBasis = portfolio.costBasis / portfolio.tokens;
+          const tradeCostBasis = avgCostBasis * trade.qty;
+          
+          portfolio.tokens -= trade.qty;
+          portfolio.costBasis -= tradeCostBasis;
+          portfolio.realizedPL += trade.total - tradeCostBasis;
+          
+          tradeHistory.push({
+            type: "SELL",
+            qty: trade.qty,
+            price: trade.execPrice,
+            total: trade.total,
+            pl: trade.total - tradeCostBasis,
+            timestamp
+          });
+        } else {
+          alert("Insufficient tokens to sell!");
+          return;
+        }
+      }
+      
+      updatePortfolioDisplay();
+      updateTradeLog();
+    }
+
+    function updatePortfolioDisplay() {
+      document.getElementById('tokensHeld').textContent = portfolio.tokens;
+      document.getElementById('totalCostBasis').textContent = fmt(portfolio.costBasis);
+      document.getElementById('realizedPL').textContent = fmt(portfolio.realizedPL);
+      
+      // Calculate current market value
+      const currentBaseEur = currentUsdPrice / currentFxRate;
+      const currentMarketValue = portfolio.tokens * currentBaseEur;
+      const unrealizedPL = currentMarketValue - portfolio.costBasis;
+      const unrealizedPLPercent = portfolio.costBasis > 0 ? (unrealizedPL / portfolio.costBasis) * 100 : 0;
+      
+      document.getElementById('currentMarketValue').textContent = fmt(currentMarketValue);
+      document.getElementById('unrealizedPL').textContent = fmt(unrealizedPL);
+      document.getElementById('unrealizedPLPercent').textContent = fmt(unrealizedPLPercent);
+      
+      // Color code unrealized P/L
+      const plElement = document.getElementById('unrealizedPL');
+      plElement.className = unrealizedPL > 0 ? 'price-up' : unrealizedPL < 0 ? 'price-down' : 'price-neutral';
+    }
+
+    function updateTradeLog() {
+      const logElement = document.getElementById('tradeHistory');
+      const recentTrades = tradeHistory.slice(-10).reverse(); // Show last 10 trades
+      
+      logElement.innerHTML = recentTrades.map(trade => {
+        const plText = trade.pl ? ` (P/L: €${fmt(trade.pl)})` : '';
+        return `<div class="trade-entry">${trade.timestamp} - ${trade.type} ${trade.qty} @ €${fmt(trade.price)} = €${fmt(trade.total)}${plText}</div>`;
+      }).join('');
+    }
+
+    // Event listeners
+    document.getElementById("calcBtn").addEventListener("click", executeTrade);
+
+    document.getElementById("startSim").addEventListener("click", function() {
+      if (simulationInterval) clearInterval(simulationInterval);
+      const speed = parseInt(document.getElementById('simSpeed').value);
+      simulationInterval = setInterval(updateMarketData, speed);
+      this.classList.add('active');
+      document.getElementById('stopSim').classList.remove('active');
+    });
+
+    document.getElementById("stopSim").addEventListener("click", function() {
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+        simulationInterval = null;
+      }
+      this.classList.add('active');
+      document.getElementById('startSim').classList.remove('active');
+    });
+
+    // Input change listeners for manual override
+    ['usdPrice', 'fxRate', 'fxFeeRate', 'qty', 'orderType'].forEach(id => {
+      document.getElementById(id).addEventListener('input', calculateTrade);
+    });
+
+    // Initialize
+    updateMarketData();
+    calculateTrade();
+  </script>
+</body>
+</html>
